@@ -1,11 +1,11 @@
 <div align="center">
-<img src="[https://capsule-render.vercel.app/api?type=waving&color=0:8b5cf6,100:06b6d4&height=200&section=header&text=COOKIE%20API&fontSize=60&fontColor=ffffff&animation=fadeIn&fontAlignY=35](https://capsule-render.vercel.app/api?type=waving&color=0:8b5cf6,100:06b6d4&height=200&section=header&text=COOKIE%20API&fontSize=60&fontColor=ffffff&animation=fadeIn&fontAlignY=35)" width="100%" alt="Cookie API Header" />
+<img src="[https://capsule-render.vercel.app/api?type=waving&color=0:8b5cf6,100:06b6d4&height=220&section=header&text=COOKIE%20API&fontSize=60&fontColor=ffffff&animation=fadeIn&fontAlignY=35](https://capsule-render.vercel.app/api?type=waving&color=0:8b5cf6,100:06b6d4&height=220&section=header&text=COOKIE%20API&fontSize=60&fontColor=ffffff&animation=fadeIn&fontAlignY=35)" width="100%" alt="Header" />
 <img src="[https://files.catbox.moe/6u7xjj.jpg](https://files.catbox.moe/6u7xjj.jpg)" alt="Hero Banner" width="100%" />
-<img src="[https://readme-typing-svg.demolab.com?font=Space+Grotesk&weight=700&size=28&pause=1000&color=06B6D4&center=true&vCenter=true&width=800&height=50&lines=Next-Gen+Media+Processing+API;Asynchronous+FastAPI+Backend;Automatic+JS+Challenge+Solving;Powered+by+yt-dlp+%26+FFmpeg](https://readme-typing-svg.demolab.com?font=Space+Grotesk&weight=700&size=28&pause=1000&color=06B6D4&center=true&vCenter=true&width=800&height=50&lines=Next-Gen+Media+Processing+API;Asynchronous+FastAPI+Backend;Automatic+JS+Challenge+Solving;Powered+by+yt-dlp+%26+FFmpeg)" alt="Typing Animation" />
+<img src="[https://readme-typing-svg.demolab.com?font=Fira+Code&weight=700&size=26&pause=1000&color=06B6D4&center=true&vCenter=true&width=800&height=50&lines=Next-Gen+Media+Processing+API;Asynchronous+FastAPI+Backend;Automatic+JS+Challenge+Solving;Powered+by+yt-dlp+%26+FFmpeg](https://readme-typing-svg.demolab.com?font=Fira+Code&weight=700&size=26&pause=1000&color=06B6D4&center=true&vCenter=true&width=800&height=50&lines=Next-Gen+Media+Processing+API;Asynchronous+FastAPI+Backend;Automatic+JS+Challenge+Solving;Powered+by+yt-dlp+%26+FFmpeg)" alt="Typing Animation" />
 <img src="[https://komarev.com/ghpvc/?username=themagmalord333-oss&label=PROFILE+VIEWS&color=8b5cf6&style=for-the-badge](https://komarev.com/ghpvc/?username=themagmalord333-oss&label=PROFILE+VIEWS&color=8b5cf6&style=for-the-badge)" alt="Profile Views" />
 <img src="[https://img.shields.io/badge/Python-3.11+-8b5cf6?style=for-the-badge&logo=python&logoColor=white](https://img.shields.io/badge/Python-3.11+-8b5cf6?style=for-the-badge&logo=python&logoColor=white)" alt="Python Badge" />
 <img src="[https://img.shields.io/badge/FastAPI-06b6d4?style=for-the-badge&logo=fastapi&logoColor=white](https://img.shields.io/badge/FastAPI-06b6d4?style=for-the-badge&logo=fastapi&logoColor=white)" alt="FastAPI Badge" />
-<img src="[https://img.shields.io/badge/Node.js-3b82f6?style=for-the-badge&logo=nodedotjs&logoColor=white](https://img.shields.io/badge/Node.js-3b82f6?style=for-the-badge&logo=nodedotjs&logoColor=white)" alt="Node JS Badge" />
+<img src="[https://img.shields.io/badge/Node.js-3b82f6?style=for-the-badge&logo=nodedotjs&logoColor=white](https://img.shields.io/badge/Node.js-3b82f6?style=for-the-badge&logo=nodedotjs&logoColor=white)" alt="Node Badge" />
 <img src="[https://img.shields.io/badge/FFmpeg-8b5cf6?style=for-the-badge&logo=ffmpeg&logoColor=white](https://img.shields.io/badge/FFmpeg-8b5cf6?style=for-the-badge&logo=ffmpeg&logoColor=white)" alt="FFmpeg Badge" />
 
 
@@ -174,5 +174,5 @@ Ensure FFmpeg is correctly installed on your host machine. Underpowered CPUs can
 <p>Made with 💜 by <a href="[https://github.com/MAGMAxRICH](https://github.com/MAGMAxRICH)">@MAGMAxRICH</a></p>
 </div>
 <div align="center">
-<img src="[https://capsule-render.vercel.app/api?type=waving&color=0:06b6d4,100:8b5cf6&height=150&section=footer](https://capsule-render.vercel.app/api?type=waving&color=0:06b6d4,100:8b5cf6&height=150&section=footer)" width="100%" alt="Cookie API Footer" />
+<img src="[https://capsule-render.vercel.app/api?type=waving&color=0:06b6d4,100:8b5cf6&height=150&section=footer](https://capsule-render.vercel.app/api?type=waving&color=0:06b6d4,100:8b5cf6&height=150&section=footer)" width="100%" alt="Footer" />
 </div>
