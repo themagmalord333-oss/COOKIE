@@ -137,7 +137,7 @@ def download_audio_sync(url: str) -> Dict[str, Any]:
 
     # 2. Proceed with yt-dlp download if no cache exists  
     opts = get_base_ydl_opts()  
-    
+
     # =========================================================================
     # ADVANCED AUDIO DOWNLOAD OPTIMIZATIONS (SPEED + QUALITY):
     # 
@@ -251,8 +251,13 @@ def download_video_sync(url: str) -> Dict[str, Any]:
     # 2. Proceed with yt-dlp download if no cache exists  
     opts = get_base_ydl_opts()  
     opts.update({  
-        'format': 'bestvideo+bestaudio/best',  
-        'merge_output_format': 'mp4'  
+        'format': 'bv*[ext=mp4]+ba[ext=m4a]/bv*+ba/best',  
+        'merge_output_format': 'mp4',
+        'writethumbnail': False,
+        'postprocessors': [{
+            'key': 'FFmpegVideoConvertor',
+            'preferedformat': 'mp4',
+        }]
     })  
 
     try:  
@@ -261,7 +266,7 @@ def download_video_sync(url: str) -> Dict[str, Any]:
             filename = ydl.prepare_filename(info)  
             base_path, _ = os.path.splitext(filename)  
 
-            final_path = filename
+            final_path = f"{base_path}.mp4"
             for ext in [".mp4", ".webm", ".mkv"]:
                 test_path = f"{base_path}{ext}"
                 if os.path.isfile(test_path) and os.path.getsize(test_path) > 0:
