@@ -43,7 +43,6 @@ os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 def init_db():
     """Initializes the SQLite database for caching metadata safely."""
     try:
-        # Added timeout to prevent "database is locked" errors in concurrent access
         with sqlite3.connect(DB_FILE, timeout=15.0) as conn:
             conn.execute('''
                 CREATE TABLE IF NOT EXISTS downloads (
@@ -78,7 +77,6 @@ def get_cached_metadata(video_id: str, file_type: str) -> Optional[Dict[str, Any
                 if os.path.isfile(row['file_path']) and os.path.getsize(row['file_path']) > 0:
                     return dict(row)
                 else:
-                    # File missing from disk, remove invalid DB entry
                     logger.warning(f"File {row['file_name']} missing from disk. Removing DB entry.")
                     cur.execute("DELETE FROM downloads WHERE id = ?", (row['id'],))
                     conn.commit()
@@ -117,46 +115,51 @@ def find_legacy_cached_file(video_id: str, ext: str) -> Optional[str]:
     return None
 
 async def cache_cleanup_task():
-    """Background task to delete old files and clean up the database."""
+    """Background task to delete old files and clean up the database without blocking the event loop."""
     while True:
         try:
             logger.info("Running advanced cache cleanup...")
             expiry_time = time.time() - (CACHE_EXPIRE_HOURS * 3600)
-            deleted_files = 0
-            db_cleaned = 0
+            
+            def perform_cleanup():
+                deleted_files = 0
+                db_cleaned = 0
+                with sqlite3.connect(DB_FILE, timeout=15.0) as conn:
+                    conn.row_factory = sqlite3.Row
+                    cur = conn.cursor()
 
-            with sqlite3.connect(DB_FILE, timeout=15.0) as conn:
-                conn.row_factory = sqlite3.Row
-                cur = conn.cursor()
+                    # 1. Scan actual disk directory for expired files (covers orphans too)
+                    if os.path.exists(DOWNLOAD_DIR):
+                        for entry in os.scandir(DOWNLOAD_DIR):
+                            if entry.is_file():
+                                file_stat = entry.stat()
+                                # st_mtime safely protects active downloads from being deleted
+                                if file_stat.st_mtime < expiry_time:
+                                    try:
+                                        os.remove(entry.path)
+                                        deleted_files += 1
+                                        cur.execute("DELETE FROM downloads WHERE file_name = ?", (entry.name,))
+                                    except Exception as e:
+                                        logger.warning(f"Could not delete old file {entry.name}: {e}")
 
-                # 1. Scan actual disk directory for expired files (covers orphans too)
-                if os.path.exists(DOWNLOAD_DIR):
-                    for entry in os.scandir(DOWNLOAD_DIR):
-                        if entry.is_file():
-                            file_stat = entry.stat()
-                            # st_mtime represents the last modified time. This safely protects active downloads.
-                            if file_stat.st_mtime < expiry_time:
-                                try:
-                                    os.remove(entry.path)
-                                    deleted_files += 1
-                                    # Delete corresponding entry from database if it exists
-                                    cur.execute("DELETE FROM downloads WHERE file_name = ?", (entry.name,))
-                                except Exception as e:
-                                    logger.warning(f"Could not delete old file {entry.name}: {e}")
+                    # 2. Sweep database for phantom records
+                    cur.execute("SELECT id, file_path FROM downloads")
+                    all_records = cur.fetchall()
+                    for record in all_records:
+                        if not os.path.exists(record['file_path']):
+                            cur.execute("DELETE FROM downloads WHERE id = ?", (record['id'],))
+                            db_cleaned += 1
 
-                # 2. Sweep database for phantom records (files deleted manually or externally)
-                cur.execute("SELECT id, file_path FROM downloads")
-                all_records = cur.fetchall()
-                for record in all_records:
-                    if not os.path.exists(record['file_path']):
-                        cur.execute("DELETE FROM downloads WHERE id = ?", (record['id'],))
-                        db_cleaned += 1
+                    conn.commit()
+                return deleted_files, db_cleaned
 
-                conn.commit()
-                if deleted_files > 0 or db_cleaned > 0:
-                    logger.info(f"Cleanup complete: Deleted {deleted_files} old files on disk, cleared {db_cleaned} orphaned DB records.")
-                else:
-                    logger.info("Cleanup complete: No expired files found.")
+            # Execute blocking I/O on a separate thread
+            deleted_files, db_cleaned = await asyncio.to_thread(perform_cleanup)
+
+            if deleted_files > 0 or db_cleaned > 0:
+                logger.info(f"Cleanup complete: Deleted {deleted_files} old files on disk, cleared {db_cleaned} orphaned DB records.")
+            else:
+                logger.info("Cleanup complete: No expired files found.")
                     
         except Exception as e:
             logger.error(f"Cache cleanup encountered an error (will retry next cycle): {e}")
@@ -194,7 +197,7 @@ async def lifespan(app: FastAPI):
 # APP INITIALIZATION
 # ---------------------------------------------------------
 
-app = FastAPI(title="YouTube Downloader & Search API", version="2.1.1-Production", lifespan=lifespan)
+app = FastAPI(title="YouTube Downloader & Search API", version="2.2.0-Production", lifespan=lifespan)
 ytmusic = YTMusic()
 
 # ---------------------------------------------------------
@@ -249,7 +252,6 @@ def download_audio_sync(url: str) -> Dict[str, Any]:
     video_id = extract_video_id(url)
     
     if video_id:
-        # 1. Check SQLite Cache
         cached_data = get_cached_metadata(video_id, "mp3")
         if cached_data:
             logger.info(f"Database cache hit! Returning audio for {video_id}")
@@ -266,7 +268,6 @@ def download_audio_sync(url: str) -> Dict[str, Any]:
                 "filesize": cached_data["file_size"]
             }
 
-        # 2. Check Legacy Disk Cache (pre-SQLite)
         legacy_file = find_legacy_cached_file(video_id, "mp3")
         if legacy_file:
             path = os.path.join(DOWNLOAD_DIR, legacy_file)
@@ -291,30 +292,30 @@ def download_audio_sync(url: str) -> Dict[str, Any]:
     logger.info(f"Starting audio download for: {url}")
     opts = get_base_ydl_opts()  
     
-    # Optimized Audio Settings
+    # ⚡ MAXIMUM SPEED AUDIO OPTIMIZATIONS
     opts.update({  
-        'format': '140/m4a/bestaudio/best',
+        'format': '140/ba[ext=m4a]/bestaudio/best', # Fast 128k AAC source for lightning quick mp3 conversion
         'writethumbnail': False,
         'postprocessors': [{  
             'key': 'FFmpegExtractAudio',  
             'preferredcodec': 'mp3',  
             'preferredquality': '192',  
         }],
-        'extractor_args': {'youtube': ['player_client=android,web']},
-        'concurrent_fragment_downloads': 15,    # Boosted parallel downloads
-        'http_chunk_size': 10485760,            # 10MB chunking for speed
+        'extractor_args': {'youtube': ['player_client=ios,android,web']}, # iOS/Android bypasses JS throttling
+        'concurrent_fragment_downloads': 15,    
+        'http_chunk_size': 10485760,            # 10MB HTTP chunking to max out connection
         'nocheckcertificate': True,
         'noprogress': True,
         'quiet': True,
         'no_warnings': True,
-        'updatetime': False,
+        'updatetime': False,                    # Stops wasted Disk I/O modifying timestamps
         'clean_infojson': False,
-        'retries': 5,                           # Increased resilience
-        'fragment_retries': 5,                  # Increased resilience
+        'retries': 5,                           
+        'fragment_retries': 5,                  
         'socket_timeout': 15,
         'postprocessor_args': [
-            '-threads', '0',                    # Forces FFmpeg to use all available cores
-            '-vn', '-sn'                        # Bypass processing video/subs natively in FFmpeg
+            '-threads', '0',                    # Force FFmpeg to use ALL CPU cores for MP3 encoding
+            '-vn', '-sn'                        # Strictly strip video/subs inside FFmpeg processing
         ]
     })  
 
@@ -343,7 +344,6 @@ def download_audio_sync(url: str) -> Dict[str, Any]:
                 "filesize": os.path.getsize(final_path)  
             }
             
-            # Save to SQLite Cache
             save_cached_metadata(response_data, "mp3")
             return response_data
 
@@ -358,7 +358,6 @@ def download_video_sync(url: str) -> Dict[str, Any]:
     video_id = extract_video_id(url)
 
     if video_id:
-        # 1. Check SQLite Cache
         cached_data = get_cached_metadata(video_id, "mp4")
         if cached_data:
             logger.info(f"Database cache hit! Returning video for {video_id}")
@@ -375,7 +374,6 @@ def download_video_sync(url: str) -> Dict[str, Any]:
                 "filesize": cached_data["file_size"]
             }
             
-        # 2. Check Legacy Disk Cache (pre-SQLite)
         legacy_file = find_legacy_cached_file(video_id, "mp4")
         if legacy_file:
             path = os.path.join(DOWNLOAD_DIR, legacy_file)
@@ -399,17 +397,29 @@ def download_video_sync(url: str) -> Dict[str, Any]:
 
     logger.info(f"Starting video download for: {url}")
     opts = get_base_ydl_opts()  
+    
+    # ⚡ MAXIMUM SPEED VIDEO OPTIMIZATIONS
     opts.update({  
-        'format': f'bv*[height<={MAX_VIDEO_QUALITY}][ext=mp4]+ba[ext=m4a]/bv*[height<={MAX_VIDEO_QUALITY}]+ba/best',  
+        'format': f'bv*[height<={MAX_VIDEO_QUALITY}][ext=mp4]+ba[ext=m4a]/b[height<={MAX_VIDEO_QUALITY}][ext=mp4]/best',  
         'merge_output_format': 'mp4',
         'writethumbnail': False,
         'embedthumbnail': False,
-        'concurrent_fragment_downloads': 10,
-        'http_chunk_size': 10485760,
-        'postprocessors': [{
-            'key': 'FFmpegVideoConvertor',
-            'preferedformat': 'mp4',
-        }]
+        'extractor_args': {'youtube': ['player_client=ios,android,web']},
+        'concurrent_fragment_downloads': 15,    
+        'http_chunk_size': 10485760,            
+        'nocheckcertificate': True,
+        'noprogress': True,
+        'quiet': True,
+        'no_warnings': True,
+        'updatetime': False,
+        'clean_infojson': False,
+        'retries': 5,
+        'fragment_retries': 5,
+        'socket_timeout': 15,
+        'postprocessor_args': [
+            '-threads', '0'                     # Accelerates the merging process via FFmpeg across all cores
+        ]
+        # ⚠️ Removed FFmpegVideoConvertor: The merge_output_format='mp4' flag merges natively without wasting CPU re-encoding.
     })  
 
     try:  
@@ -443,7 +453,6 @@ def download_video_sync(url: str) -> Dict[str, Any]:
                 "filesize": os.path.getsize(final_path)  
             }
             
-            # Save to SQLite Cache
             save_cached_metadata(response_data, "mp4")
             return response_data
 
@@ -462,7 +471,7 @@ def download_video_sync(url: str) -> Dict[str, Any]:
 async def root():
     return {
         "name": "MAGMA Music API",
-        "version": "2.1.1-Production",
+        "version": "2.2.0-Production",
         "status": "online"
     }
 
@@ -470,7 +479,7 @@ async def root():
 async def health_check():
     return {
         "status": "healthy",
-        "version": "2.1.1",
+        "version": "2.2.0",
         "yt_dlp_version": yt_dlp.version.__version__,
         "cache_expiry_hours": CACHE_EXPIRE_HOURS
     }
